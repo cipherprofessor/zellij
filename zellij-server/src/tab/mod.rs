@@ -7370,11 +7370,11 @@ impl Tab {
         }
         if let Some(mut new_pane_geom) = self.floating_panes.find_room_for_new_pane() {
             if let Some(floating_pane_coordinates) = &floating_pane_coordinates {
-                let viewport = self.viewport.borrow();
+                let viewport = self.floating_panes.viewport_for_new_panes();
                 if let Some(pinned) = floating_pane_coordinates.pinned.as_ref() {
                     pane.set_pinned(*pinned);
                 }
-                new_pane_geom.adjust_coordinates(floating_pane_coordinates.clone(), *viewport);
+                new_pane_geom.adjust_coordinates(floating_pane_coordinates.clone(), viewport);
                 self.swap_layouts.set_is_floating_damaged();
             }
             pane.set_active_at(Instant::now());
@@ -7399,6 +7399,8 @@ impl Tab {
                     self.floating_panes.focus_pane_for_all_clients(pane_id);
                 }
             }
+        } else {
+            log::error!("could not find room for a new floating pane");
         }
         if self.auto_layout && !self.swap_layouts.is_floating_damaged() {
             // only do this if we're already in this layout, otherwise it might be

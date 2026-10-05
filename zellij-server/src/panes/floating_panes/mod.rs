@@ -7,7 +7,7 @@ use zellij_utils::{
 use crate::panes::kitty_graphics::KittyHostSupport;
 use crate::resize_pty;
 use crate::tab::{pane_info_for_pane, Pane};
-use floating_pane_grid::FloatingPaneGrid;
+use floating_pane_grid::{viewport_fits_a_floating_pane, FloatingPaneGrid};
 
 use crate::{
     os_input_output::ServerOsApi,
@@ -322,9 +322,20 @@ impl FloatingPanes {
     pub fn panes_contain(&self, pane_id: &PaneId) -> bool {
         self.panes.contains_key(pane_id)
     }
+    /// The area in which new floating panes are placed. This is the viewport, unless it is too
+    /// small for a floating pane, which happens in a tab with only plugin panes (eg. the welcome
+    /// screen).
+    pub fn viewport_for_new_panes(&self) -> Viewport {
+        let viewport = *self.viewport.borrow();
+        if viewport_fits_a_floating_pane(&viewport) {
+            viewport
+        } else {
+            (*self.display_area.borrow()).into()
+        }
+    }
     pub fn find_room_for_new_pane(&mut self) -> Option<PaneGeom> {
         let display_area = *self.display_area.borrow();
-        let viewport = *self.viewport.borrow();
+        let viewport = self.viewport_for_new_panes();
         let floating_pane_grid = FloatingPaneGrid::new(
             &mut self.panes,
             &mut self.desired_pane_positions,

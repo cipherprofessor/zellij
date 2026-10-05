@@ -850,6 +850,12 @@ impl<'a> FloatingPaneGrid<'a> {
     }
 }
 
+/// Whether a floating pane of the default (half) size fits in the viewport at all. When it does
+/// not, no position can ever be found for a new floating pane, whatever else is on screen.
+pub fn viewport_fits_a_floating_pane(viewport: &Viewport) -> bool {
+    pane_geom_is_big_enough(&half_size_middle_geom(viewport, 0))
+}
+
 pub fn half_size_middle_geom(space: &Viewport, offset: usize) -> PaneGeom {
     let mut geom = PaneGeom {
         x: space.x + (space.cols as f64 / 4.0).round() as usize + offset,

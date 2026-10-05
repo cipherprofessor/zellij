@@ -26,7 +26,7 @@ use zellij_utils::input::layout::{
 };
 use zellij_utils::input::mouse::MouseEvent;
 use zellij_utils::ipc::IpcReceiverWithContext;
-use zellij_utils::pane_size::{Size, SizeInPixels};
+use zellij_utils::pane_size::{Size, SizeInPixels, Viewport};
 use zellij_utils::position::Position;
 
 use crate::pty_writer::PtyWriteInstruction;
@@ -10891,6 +10891,57 @@ fn can_define_expanded_pane_in_stack() {
         Palette::default(),
     );
     assert_snapshot!(snapshot);
+}
+
+#[test]
+fn floating_pane_with_coordinates_is_visible_when_the_viewport_is_too_small() {
+    // https://github.com/zellij-org/zellij/issues/5650
+    let size = Size {
+        cols: 120,
+        rows: 40,
+    };
+    let client_id = 1;
+    let mut tab = create_new_tab(size, ModeInfo::default());
+    // this is what is left of the viewport in a tab that only has plugin panes
+    *tab.viewport.borrow_mut() = Viewport {
+        x: 0,
+        y: 39,
+        rows: 1,
+        cols: 120,
+    };
+    let coordinates = FloatingPaneCoordinates {
+        x: None,
+        y: None,
+        width: Some(PercentOrFixed::Percent(50)),
+        height: Some(PercentOrFixed::Percent(50)),
+        pinned: None,
+        borderless: None,
+        border_style: None,
+    };
+
+    tab.new_floating_pane(
+        PaneId::Terminal(2),
+        None,
+        None,
+        false,
+        true,
+        Some(coordinates),
+        None,
+    )
+    .unwrap();
+
+    let geom = tab.get_active_pane(client_id).unwrap().position_and_size();
+    assert!(
+        geom.rows.as_usize() >= crate::tab::MIN_TERMINAL_HEIGHT
+            && geom.cols.as_usize() >= crate::tab::MIN_TERMINAL_WIDTH,
+        "the floating pane is too small to be seen: {:?}",
+        geom
+    );
+    assert!(
+        geom.x + geom.cols.as_usize() <= size.cols && geom.y + geom.rows.as_usize() <= size.rows,
+        "the floating pane is outside of the screen: {:?}",
+        geom
+    );
 }
 
 #[test]

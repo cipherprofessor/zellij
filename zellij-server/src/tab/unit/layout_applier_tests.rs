@@ -7506,3 +7506,100 @@ fn test_borderless_plugins_filling_the_screen_leave_a_non_empty_viewport() {
     );
     assert!(viewport.rows > 0 && viewport.cols > 0, "{:?}", viewport);
 }
+
+#[test]
+fn test_floating_pane_has_room_in_a_tab_with_only_plugin_panes() {
+    // https://github.com/zellij-org/zellij/issues/5650
+    let kdl_layout = r#"
+        layout {
+            pane borderless=true {
+                plugin location="zellij:session-manager"
+            }
+            pane size=1 borderless=true {
+                plugin location="zellij:compact-bar"
+            }
+        }
+    "#;
+    let (tiled_layout, floating_layout) = parse_kdl_layout(kdl_layout);
+    let mut new_plugin_ids = HashMap::new();
+    new_plugin_ids.insert(
+        RunPluginOrAlias::from_url("zellij:session-manager", &None, None, None).unwrap(),
+        vec![100],
+    );
+    new_plugin_ids.insert(
+        RunPluginOrAlias::from_url("zellij:compact-bar", &None, None, None).unwrap(),
+        vec![101],
+    );
+    let size = Size {
+        cols: 120,
+        rows: 40,
+    };
+    let (
+        viewport,
+        senders,
+        sixel_image_store,
+        link_handler,
+        terminal_emulator_colors,
+        terminal_emulator_color_codes,
+        character_cell_size,
+        connected_clients,
+        style,
+        display_area,
+        mut tiled_panes,
+        mut floating_panes,
+        draw_pane_frames,
+        mut focus_pane_id,
+        os_api,
+        debug,
+        arrow_fonts,
+        styled_underlines,
+        osc8_hyperlinks,
+        explicitly_disable_kitty_keyboard_protocol,
+    ) = create_layout_applier_fixtures(size);
+    let mut applier = LayoutApplier::new(
+        &viewport,
+        &senders,
+        &sixel_image_store,
+        &Rc::new(RefCell::new(KittyImageStore::default())),
+        &link_handler,
+        &terminal_emulator_colors,
+        &terminal_emulator_color_codes,
+        &character_cell_size,
+        &connected_clients,
+        &style,
+        &display_area,
+        &mut tiled_panes,
+        &mut floating_panes,
+        draw_pane_frames,
+        &mut focus_pane_id,
+        &os_api,
+        debug,
+        arrow_fonts,
+        styled_underlines,
+        osc8_hyperlinks,
+        explicitly_disable_kitty_keyboard_protocol,
+        None,
+    );
+    applier
+        .apply_layout(
+            tiled_layout,
+            floating_layout,
+            vec![],
+            vec![],
+            new_plugin_ids,
+            1,
+        )
+        .unwrap();
+
+    let room = floating_panes.find_room_for_new_pane().unwrap_or_else(|| {
+        panic!(
+            "no room for a floating pane, viewport is {:?}",
+            *viewport.borrow()
+        )
+    });
+    assert!(
+        room.x + room.cols.as_usize() <= size.cols && room.y + room.rows.as_usize() <= size.rows,
+        "the floating pane is outside of the screen: {:?}",
+        room
+    );
+}
